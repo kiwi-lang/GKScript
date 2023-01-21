@@ -42,11 +42,13 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
 
     FGKEdGraphTransform(FString Folder, FString ScriptName);
 
-    FGKCodeWriter Writer;
-
-    int IndentationLevel;
-
     FString Indentation() const;
+
+    void GetArgumentReturns(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs);
+
+    FString MakeVariable(UEdGraphPin* Pin);
+
+    FString GetVariable(UEdGraphPin* Pin);
 
     // Generate Transform Functions
     // ---------------------------
@@ -58,4 +60,11 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
     UK2NODES(NODE)
 #undef NODE
     // clang-format on
+
+
+    FGKCodeWriter               Writer;           // FileWriter
+    TMap<UEdGraphPin*, FString> PinToVariable;    // Convert Pins to variables
+    int                         IndentationLevel; // Used to generate python code
+                                                  // with the right indentation
+
 };

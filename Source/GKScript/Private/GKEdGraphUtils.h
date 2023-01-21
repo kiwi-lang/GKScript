@@ -7,8 +7,6 @@
 
 class FString;
 
-void GetArgumentReturns(class UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs);
-
 void GetNodeOutputs(class UK2Node* Node, TArray<FString>& Outs);
 
 UK2Node* FindNextExecutionNode(UK2Node* Node);

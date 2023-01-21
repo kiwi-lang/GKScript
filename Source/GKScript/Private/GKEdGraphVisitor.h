@@ -14,27 +14,31 @@
 #include "K2Node_CallFunction.h"
 #include "K2Node_Event.h"
 #include "K2Node_DynamicCast.h"
-
+#include "K2Node_Knot.h"
 #include "K2Node_Self.h"
 #include "K2Node_GetSubsystem.h"
 #include "K2Node_MacroInstance.h"
 #include "K2Node_EnhancedInputAction.h"
-
+#include "K2Node_FunctionResult.h"
+#include "K2Node_FunctionTerminator.h"
 
 template <typename Impl, typename Return, typename... Args>
 struct FGKEdGraphVisitor {
-
+    
 
 #define UK2NODES(NODE)\
     NODE(CallFunction)\
-    NODE(FunctionEntry)\
     NODE(VariableGet)\
     NODE(Event)\
     NODE(DynamicCast)\
     NODE(Self)\
     NODE(GetSubsystem)\
     NODE(EnhancedInputAction)\
-    NODE(MacroInstance)
+    NODE(MacroInstance)\
+    NODE(Knot)\
+    NODE(FunctionTerminator)\
+    NODE(FunctionResult)\
+    NODE(FunctionEntry)\
 
     enum class NodeKind {
         Unknown,

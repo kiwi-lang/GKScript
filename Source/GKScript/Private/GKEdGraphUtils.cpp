@@ -24,22 +24,6 @@ void GetNodeOutputs(class UK2Node* Node, TArray<FString>& Outs) {
         }
     }
 }
-void GetArgumentReturns(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs) {
-    for (auto Pin : Node->Pins) {
-        // Ignore execution pins
-        if (Pin->PinType.PinCategory == "exec") {
-            continue;
-        }
-
-        if (Pin->Direction == EGPD_Input) {
-            // TODO: We need to generate the code for the Arguments
-            Args.Add(MakeLegalName(Pin->GetName()));
-        }
-        else {
-            Outs.Add(MakeLegalName(Pin->GetName()));
-        }
-    }
-}
 
 // Finds Next Node
 UK2Node* FindNextExecutionNode(UK2Node* Node) {
