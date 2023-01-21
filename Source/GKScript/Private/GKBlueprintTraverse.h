@@ -2,4 +2,5 @@
 
 #pragma once
 
-void GeneratePythonFromBlueprint(class UBlueprint* Source);
+void GeneratePythonFromBlueprint(class UBlueprint* Source, FString Destination);
+ 

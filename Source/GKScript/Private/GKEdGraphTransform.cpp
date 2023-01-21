@@ -37,6 +37,7 @@ void FGKCodeWriter::OpenFile(FString Folder, FString ScriptName) {
     FString ContentDir = FPaths::ProjectContentDir();
     FString FolderPath = FPaths::Combine(ContentDir, Folder);
     FString FilePath = FPaths::Combine(FolderPath, ScriptName + ".us");
+    
 
     const char* c_filename = TCHAR_TO_UTF8(*FilePath);
 
@@ -57,6 +58,10 @@ void FGKCodeWriter::OpenFile(FString Folder, FString ScriptName) {
     }
     FilePointer = fp;
 #endif
+
+    if (FilePointer) {
+        GKSCRIPT_VERBOSE(TEXT(" - %s"), *FPaths::ConvertRelativePathToFull(FilePath));
+    }
 }
 
 void FGKCodeWriter::Close() {
@@ -89,9 +94,25 @@ struct FGKIndentationGuard {
 };
 
 
+struct FGKScopeGuard {
+    FGKScopeGuard(FGKEdGraphTransform& Transform) :
+        Transform(Transform)
+    {
+        Transform.Context.Add(FGKGenContext());
+    }
+
+    ~FGKScopeGuard() {
+        Transform.Context.Pop();
+    }
+
+    FGKEdGraphTransform& Transform;
+};
+
+
 #define GENPRINT(fmt, ...) Writer.Printf(TEXT(fmt), __VA_ARGS__)
 #define WRITELINE(fmt, ...) Writer.Printf(TEXT("%s" fmt "\n"), *Indentation(), __VA_ARGS__)
-#define INDENT() FGKIndentationGuard _GK_INDENTATION(*this);
+#define INDENT() FGKIndentationGuard _GK_INDENTATION(*this)
+#define NEWSCOPE() FGKScopeGuard _GK_SCOPE(*this)
 
 FGKEdGraphTransform::FGKEdGraphTransform(FString Folder, FString ScriptName){
     Writer.OpenFile(Folder, ScriptName);
@@ -120,37 +141,237 @@ void FGKEdGraphTransform::MacroInstance(UK2Node_MacroInstance* Node) {}
 
 
 FString FGKEdGraphTransform::MakeVariable(UEdGraphPin* Pin) {
-    static FString ReturnValue = "ReturnValue";
-
-    FString Name = Pin->GetName();
-    if (Name == ReturnValue) {
-        UObject* Object = Pin->PinType.PinSubCategoryObject.Get();
-
-        if (Object) {
-            // The actual object of the CDO ?
-            Name = Object->GetName();
-        } else {
-            // PinCategory: struct, object, bool
-            Name = Pin->PinType.PinCategory.ToString();
-        }
-    } 
-    
-    Name.ReplaceInline(TEXT(" "), TEXT("_"));
-    PinToVariable.Add(Pin, Name);
-    return Name;
+    return ResolveOutputPin(Pin);
 }
 
 FString FGKEdGraphTransform::GetVariable(UEdGraphPin* Pin) {
-    FString* Result = PinToVariable.Find(Pin);
-
-    if (Result != nullptr){
-        return *Result;
-    }
-
-    return "None_" + Pin->GetName();
+    return ResolveInputPin(Pin);
 }
 
-void FGKEdGraphTransform::GetArgumentReturns(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs) {
+
+FString GetValue(UEdGraphPin* Pin) {
+    if (!Pin->DefaultValue.IsEmpty()) {
+        if (Pin->DefaultValue.Contains(",")) {
+            return FString::Printf(TEXT("(%s)"), *Pin->DefaultValue); 
+        }
+        return Pin->DefaultValue;
+    }
+
+    if (Pin->DefaultObject) {
+        return FString("Object");
+    }
+
+    if (!Pin->DefaultTextValue.IsEmpty()) {
+        return FString::Printf(TEXT("\"%s\""), *Pin->DefaultTextValue.ToString());
+    }
+
+    return FString();
+}
+
+
+FString GetType(UEdGraphPin* Pin) {
+    UObject* Object = Pin->PinType.PinSubCategoryObject.Get();
+
+    if (Object) {
+        // The actual object of the CDO ?
+        return Object->GetName();
+    }
+    else {
+        // PinCategory: struct, object, bool
+        return Pin->PinType.PinCategory.ToString();
+    }
+
+    return TEXT("Type");
+}
+
+struct FGKNewNameGuard {
+    FGKNewNameGuard(FGKEdGraphTransform& Transform, FString const& Name) :
+        Transform(Transform)
+    {
+        Transform.CurrentVariable.Add(Name);
+    }
+
+    ~FGKNewNameGuard() {
+        Transform.CurrentVariable.Pop(false);
+    }
+
+    FGKEdGraphTransform& Transform;
+};
+
+
+TArray<FString> FGKEdGraphTransform::FindAllNames(UEdGraphPin* EndPin) {
+    TSet<UEdGraphPin*> Visited;
+    TSet<FString> Names;
+
+    _FindAllNames(EndPin, Visited, Names);
+
+    return Names.Array();
+}
+
+void FGKEdGraphTransform::_FindAllNames(UEdGraphPin* EndPin, TSet<UEdGraphPin*>& Visited, TSet<FString>& Names) {
+    bool bAlreadyIn = false;
+    Visited.Add(EndPin, &bAlreadyIn);
+    if (bAlreadyIn) {
+        return;
+    }
+    static TSet<FString> Forbidden = {
+        TEXT("OutputPin"),
+        TEXT("InputPin"),
+        TEXT("ReturnValue"),
+        TEXT("self"),
+    };
+
+    FString Name = EndPin->GetName();
+
+    if (!Forbidden.Contains(Name)) {
+        Names.Add(Name);
+    }
+
+    for(UEdGraphPin* Link: EndPin->LinkedTo) {
+        
+        UEdGraphNode* NextGraphNode = Link->GetOwningNode();
+        if (auto Knot = Cast<UK2Node_Knot>(NextGraphNode)) {
+            for(UEdGraphPin* Pin: Knot->Pins) {
+                _FindAllNames(Pin, Visited, Names);
+            }
+        }
+        else {
+            _FindAllNames(Link, Visited, Names);
+        }
+    }
+}
+
+FString FGKEdGraphTransform::ResolveOutputPin(UEdGraphPin* EndPin) {
+    FString* Result = PinToVariable.Find(EndPin);
+    if (Result) {
+        return Result[0];
+    }
+
+    // Find the names of the pins 
+    TArray<FString> PinNames = FindAllNames(EndPin);
+
+    FGKGenContext& CurrentContext = Context.Last();
+    FString SelectedName;
+    bool bUnique = false;
+
+    for (FString const& Name : PinNames) {
+        if (!CurrentContext.Variables.Contains(Name)) {
+            SelectedName = Name;
+            bUnique = true;
+        }
+    }
+
+    if (PinNames.Num() == 1) {
+        SelectedName = PinNames[0];
+    } else if (PinNames.Num() == 0) {
+        SelectedName = FString::Printf(TEXT("%s_%d"), *GetType(EndPin), CurrentContext.Variables.Num());
+    }
+
+    if (!bUnique) {
+        int i = 0;
+        FString NewName = SelectedName;
+        while (CurrentContext.Variables.Contains(NewName))
+        {
+            NewName = FString::Printf(TEXT("%s_%d"), *SelectedName, CurrentContext.Variables.Num());
+        } 
+        bUnique = true;
+    }
+
+    CurrentContext.Variables.Add(SelectedName);
+    PinToVariable.Add(EndPin, SelectedName);
+
+
+    return FString::Printf(TEXT("%s: %s"), *SelectedName, *GetType(EndPin));
+}
+
+FString FGKEdGraphTransform::ResolveInputPin(UEdGraphPin* EndPin) {
+    TArray<UEdGraphPin*> Pins;
+    Pins.Add(EndPin);
+    ensure(EndPin->Direction == EGPD_Input);
+
+    FString ArgName = EndPin->PinName.ToString();
+
+    FString Type = GetType(EndPin);
+
+    FGKNewNameGuard NameQueue(*this, ArgName);
+
+    while (Pins.Num() > 0) {
+        UEdGraphPin* Pin = Pins.Pop(false);
+        // GKSCRIPT_VERBOSE(TEXT("%s"), *PinName);
+
+        // Default Value Pin
+        if (Pin->LinkedTo.Num() == 0) {
+            FString Value = GetValue(Pin);
+            if (Value.IsEmpty()) {
+                return FString::Printf(TEXT("%s: %s"), *ArgName, *Type);
+            }
+            return FString::Printf(TEXT("%s: %s = %s"), *ArgName, *Type, *Value);
+        }
+
+        for (UEdGraphPin* Link : Pin->LinkedTo)
+        {
+            // Downstream link
+            if (Link->Direction == EGPD_Output) {
+
+                FString* Result2 = PinToVariable.Find(Link);
+                if (Result2 != nullptr) {
+                    return FString::Printf(TEXT("%s: %s = %s"), *ArgName, *Type, *Result2[0]);
+                }
+
+                UEdGraphNode* NextGraphNode = Link->GetOwningNode();
+                if (Cast<UK2Node_Knot>(NextGraphNode)) {
+                    for (UEdGraphPin* NextPin : NextGraphNode->Pins) {
+                        if (NextPin->PinType.PinCategory == "exec") {
+                            continue;
+                        }
+
+                        if (NextPin->Direction == EGPD_Input) {
+                            Pins.Add(NextPin);
+                        }
+                    }
+                    continue;
+                } 
+                else if (auto Self = Cast<UK2Node_Self>(NextGraphNode)) {
+                    return FString::Printf(TEXT("%s: %s = %s"),
+                        *ArgName,
+                        *Type,
+                        TEXT("self")
+                    );
+                }
+                else if (auto Variable = Cast<UK2Node_VariableGet>(NextGraphNode))
+                {
+                    return FString::Printf(TEXT("%s: %s = %s"),
+                        *ArgName,
+                        *Type,
+                        *Variable->GetVarNameString()
+                    );
+                }
+                else 
+                {
+                    // We found a graph to call
+                    FString* Result = PinToVariable.Find(Pin);
+
+                    if (Result == nullptr) {
+                        // Create a Variable using the output Node
+                        Exec(Cast<UK2Node>(NextGraphNode));
+                        Result = PinToVariable.Find(Link);
+                    }
+
+                    if (Result != nullptr) {
+                        return FString::Printf(TEXT("%s: %s = %s"), *ArgName, *Type, *Result[0]);
+                    } else {
+                        return FString::Printf(TEXT("%s: %s = %s"), *ArgName, *Type, TEXT("?"));
+                    }
+                    
+                }
+            }
+        }
+    }
+
+    return FString();
+}
+
+void FGKEdGraphTransform::GetInputOutputs(UK2Node* Node, TArray<FString>& Inputs, TArray<FString>& Outputs) {
     for (UEdGraphPin* Pin : Node->Pins) {
         // Ignore execution pins
         if (Pin->PinType.PinCategory == "exec") {
@@ -159,61 +380,52 @@ void FGKEdGraphTransform::GetArgumentReturns(UK2Node* Node, TArray<FString>& Arg
 
         if (Pin->Direction == EGPD_Input) {
             // TODO: We need to generate the code for the Arguments
-            Args.Add(GetVariable(Pin));
+            FString Name = ResolveInputPin(Pin);
+
+            Inputs.Add(Name);
         }
-        else {
-            Outs.Add(MakeVariable(Pin));
+        else if (Pin->Direction == EGPD_Output) {
+            FString Name = ResolveOutputPin(Pin);
+            Outputs.Add(Name);
         }
     }
 }
 
 void FGKEdGraphTransform::CallFunction(UK2Node_CallFunction* Node)
 {
+    if (PreviousNodes.Contains(Node)) {
+        GKSCRIPT_WARNING(TEXT("Already called"));
+        return;
+    }
+    PreviousNodes.Add(Node);
+
     TArray<FString> Args;
     TArray<FString> Outs;
 
     // Generate the code to compute the arguments
-    ExecuteArguments(Node);
+    // ExecuteArguments(Node);
 
     // TODO: We need to generate the code for the Arguments
-    GetArgumentReturns(Node, Args, Outs);
+    GetInputOutputs(Node, Args, Outs);
 
+    WRITELINE("# CallFunction");
     if (Outs.Num() > 0)
     {
-        GENPRINT("  %s = %s(%s)\n", 
-            *Join(", ", Outs), 
-            *Node->GetFunctionName().ToString(), 
-            *Join(", ", Args)
-        );
+        WRITELINE("%s = %s(", *Join(", ", Outs), *Node->GetFunctionName().ToString());
     }
-    else
-    {
-        GENPRINT("  %s(%s)\n", *Node->GetFunctionName().ToString(), *Join(", ", Args));
+    else {
+        WRITELINE("%s(", *Node->GetFunctionName().ToString());
     }
+
+    for (FString& Arg : Args) {
+        INDENT();
+        WRITELINE("%s,", *Arg);
+    }
+    WRITELINE(")");
+
 
     Super::Exec(FindNextExecutionNode(Node));
     return Return();
-}
-
-void FGKEdGraphTransform::ExecuteArguments(UK2Node* Node)
-{
-    for (auto Pin : Node->Pins)
-    {
-        // Ignore execution pins
-        if (Pin->PinType.PinCategory == "exec")
-        {
-            continue;
-        }
-
-        if (Pin->Direction == EGPD_Input)
-        {
-            for (auto Link : Pin->LinkedTo)
-            {
-                auto GraphNode = Link->GetOwningNode();
-                Super::Exec(Cast<UK2Node>(GraphNode));
-            }
-        }
-    }
 }
 
 void FGKEdGraphTransform::DynamicCast(UK2Node_DynamicCast* Node)
@@ -221,15 +433,12 @@ void FGKEdGraphTransform::DynamicCast(UK2Node_DynamicCast* Node)
     TArray<FString> Args;
     TArray<FString> Outs;
 
-    // Generate the code to compute the arguments
-    ExecuteArguments(Node);
-
     // TODO: We need to generate the code for the Arguments
-    GetArgumentReturns(Node, Args, Outs);
+    GetInputOutputs(Node, Args, Outs);
 
     // Get the outputs
     GetNodeOutputs(Node, Outs);
-    GENPRINT("    %s = Cast(%s, %s)\n", *Join(",", Outs), *Node->TargetType->GetName(), *Join(",", Args));
+    WRITELINE("%s = Cast(%s, %s)", *Join(",", Outs), *Node->TargetType->GetName(), *Join(",", Args));
 
     // TODO: Handle the Cast Failed exec pin
     //
@@ -250,20 +459,10 @@ void FGKEdGraphTransform::Event(UK2Node_Event* Node)
 {
     WRITELINE("# Event");
     WRITELINE("def On_%s():", *Node->GetFunctionName().ToString());
-
+    NEWSCOPE();
     {
         INDENT();
-        WRITELINE(DOCSTRING "%s" DOCSTRING, *Node->GetDesc());
-        /*
-        // Kepp traversing
-        auto Next = FindNextExecutionNode(Node);
-        // Event is not implemented
-        if (Next == nullptr)
-        {
-            GENPRINT("    pass%s", "");
-        }
-        //
-        */
+        WRITELINE(DOCSTRING "%s" DOCSTRING, *FormatDocstring(Node->GetTooltipText().ToString()));
 
         Super::Exec(Node->GetThenPin());
     }
@@ -292,7 +491,7 @@ void FGKEdGraphTransform::EnhancedInputAction(UK2Node_EnhancedInputAction* Node)
 
     {
         INDENT();
-        WRITELINE(DOCSTRING "%s" DOCSTRING, *Node->GetDesc());
+        WRITELINE(DOCSTRING "%s" DOCSTRING, *FormatDocstring(Node->GetTooltipText().ToString()));
 
         Super::Exec(Node->GetThenPin());
         GENPRINT("\n");
@@ -303,44 +502,59 @@ void FGKEdGraphTransform::EnhancedInputAction(UK2Node_EnhancedInputAction* Node)
 void FGKEdGraphTransform::MacroInstance(UK2Node_MacroInstance* Node) {
     WRITELINE("# MacroInstance");
     
-    TArray<UEdGraphPin*> ExecOut;
-    GetThenPins(Node, ExecOut);
+    TArray<FString> Inputs;
+    TArray<FString> Outputs;
 
-    if (ExecOut.Num() == 1) {
-        WRITELINE("%s", *Node->GetMacroGraph()->GetFName().ToString());
+    // FIXME
+    GetInputOutputs(Node, Inputs, Outputs);
 
-        Super::Exec(ExecOut[0]);
-    } else {
-       
-        int i = 0;
-        for(UEdGraphPin* Pin: ExecOut) {
-            if (i == 0){
-                WRITELINE("try:");
-            } else {
-                WRITELINE("except:");
-            }
-            INDENT();
+    UEdGraph* MacroGraph = Node->GetMacroGraph();
 
-            if (i == 0) {
-                WRITELINE("%s", *Node->GetMacroGraph()->GetFName().ToString());
-            }
 
-            Super::Exec(Pin);
-            i += 1;
+    // Does not work ?
+    // TArray<UK2Node*> Roots = FindRoots(MacroGraph);
+
+    UK2Node* Root = nullptr;
+    for(UEdGraphNode* Node: MacroGraph->Nodes) {
+        
+        int InputPins = 0;
+        int ExecPins = 0;
+
+        for(UEdGraphPin* Pin: Node->Pins) {
+            InputPins += int(Pin->Direction == EGPD_Input);
+            ExecPins += Pin->PinName == FName("exec");
         }
+
+        bool bIsRoot = InputPins == 0 && ExecPins == 1;
+        if (bIsRoot) {
+            Root = Cast<UK2Node>(Node);
+            break;
+        }
+    }
+
+    Super::Exec(Root);
+    
+
+}
+
+void FGKEdGraphTransform::Tunnel(UK2Node_Tunnel* Node) {
+    TArray<FString> Inputs;
+    TArray<FString> Outputs;
+    GetInputOutputs(Node, Inputs, Outputs);
+
+    auto Next = Node->GetThenPin();
+    if (Next){
+        Super::Exec(Cast<UK2Node>(Next->GetOwningNode()));
     }
 }
 
-// Knot is the reroute node
-//  for those node we go from output -> input looking for the 
-//  original source of the value
-// They do not exist in source code
+// This is executed on
 void FGKEdGraphTransform::Knot(UK2Node_Knot* Node) {
 
     int Count = 0;
     for (UEdGraphPin* Pin : Node->Pins) {
-        if (Pin && Pin->Direction == EGPD_Input){
-            // Super::ExecGraphNode(Pin->GetOwningNode());
+        if (Pin && Pin->Direction == EGPD_Output) {
+            Super::ExecGraphNode(Pin->GetOwningNode());
             Count += 1;
         }
     }
@@ -350,22 +564,38 @@ void FGKEdGraphTransform::Knot(UK2Node_Knot* Node) {
 }
 
 
-void FGKEdGraphTransform::FunctionTerminator(UK2Node_FunctionTerminator* Node) {
+FString FGKEdGraphTransform::FormatDocstring(FString const& Docstring) {
+    FString Indent = TEXT("\n") + Indentation();
+    return Docstring.Replace(TEXT("\n"), *Indent);
+}
+
+void FGKEdGraphTransform::FunctionTerminator(UK2Node_FunctionTerminator* Node) 
+{
+    if (PreviousNodes.Contains(Node)) {
+        GKSCRIPT_WARNING(TEXT("Inifinite Loop"));
+        return;
+    }
+    PreviousNodes.Add(Node);
+
+    NEWSCOPE();
+
     // Generate the code to compute the arguments
-    ExecuteArguments(Node);
+    // ExecuteArguments(Node);
 
     TArray<FString> Inputs;
     TArray<FString> Arguments;
-    GetArgumentReturns(Node, Inputs, Arguments);
+    GetInputOutputs(Node, Inputs, Arguments);
 
     FName FunctionName = Node->FunctionReference.GetMemberName();
 
     UK2Node_FunctionEntry* Entry = Cast<UK2Node_FunctionEntry>(Node);
-    
+    FString Tooltip = Node->GetTooltipText().ToString();
+
     if (Entry) {
         if (Entry->CustomGeneratedFunctionName != NAME_None) {
             FunctionName = Entry->CustomGeneratedFunctionName;
         }
+        Tooltip = Entry->MetaData.ToolTip.ToString();
     }
 
     // WRITELINE("# FunctionTerminator");
@@ -373,7 +603,7 @@ void FGKEdGraphTransform::FunctionTerminator(UK2Node_FunctionTerminator* Node) {
 
     {
         INDENT();
-        WRITELINE(DOCSTRING "%s" DOCSTRING, *Node->GetDesc());
+        WRITELINE(DOCSTRING "%s" DOCSTRING, *FormatDocstring(Tooltip));
 
         auto Then = Node->GetThenPin();
         Super::Exec(Then);
@@ -386,10 +616,15 @@ void FGKEdGraphTransform::FunctionTerminator(UK2Node_FunctionTerminator* Node) {
     }
 }
 
+// Return Node
 void FGKEdGraphTransform::FunctionResult(UK2Node_FunctionResult* Node) {
     WRITELINE("# FunctionResult");
-    // FunctionTerminator(Node);
-    ExecuteArguments(Node);
+    TArray<FString> Inputs;
+    TArray<FString> Outs;
+
+    GetInputOutputs(Node, Inputs, Outs);
+
+    WRITELINE("return %s", *Join(", ", Inputs));
 }
 
 void FGKEdGraphTransform::FunctionEntry(UK2Node_FunctionEntry* Node)

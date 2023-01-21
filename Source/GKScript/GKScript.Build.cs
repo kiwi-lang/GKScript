@@ -35,12 +35,12 @@ public class GKScript : ModuleRules
         // Version Info
         // ------------
         // Automatically set by the CI
-        string GKScript_TAG = "v1.2.0";
-        string GKScript_HASH = "fd5965b0a334ba5784929aac36716dbf0e9fb9fb";
-        string GKScript_DATE = "2023-01-15 03:23:34 +0000";
+        string GKSCRIPT_TAG = "v1.2.0";
+        string GKSCRIPT_HASH = "fd5965b0a334ba5784929aac36716dbf0e9fb9fb";
+        string GKSCRIPT_DATE = "2023-01-15 03:23:34 +0000";
 
-        PublicDefinitions.Add("GKScript_TAG=" + GKScript_TAG);
-        PublicDefinitions.Add("GKScript_COMMIT=" + GKScript_HASH);
-        PublicDefinitions.Add("GKScript_DATE=" + GKScript_DATE);
+        PublicDefinitions.Add("GKSCRIPT_TAG=" + GKSCRIPT_TAG);
+        PublicDefinitions.Add("GKSCRIPT_COMMIT=" + GKSCRIPT_HASH);
+        PublicDefinitions.Add("GKSCRIPT_DATE=" + GKSCRIPT_DATE);
     }
 }

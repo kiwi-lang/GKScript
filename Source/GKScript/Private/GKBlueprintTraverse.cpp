@@ -11,19 +11,19 @@
 
 // UnrealEngine
 #include "Engine/Blueprint.h"
-#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/BlueprintGeneratedClass.h" 
 #include "Engine/SimpleConstructionScript.h"
 
 
 void GeneratePythonFromBlueprint(class UBlueprintGeneratedClass* Source);
 void GeneratePythonFromBlueprint(class USimpleConstructionScript* Source);
 
-void GeneratePythonFromBlueprint(class UBlueprint* Source) {
+void GeneratePythonFromBlueprint(class UBlueprint* Source, FString Destination) {
     TArray<UEdGraph*> Graphs;
 
     Source->GetAllGraphs(Graphs);
 
-    FGKEdGraphTransform Transformer("GKScript", Source->GetName());
+    FGKEdGraphTransform Transformer(Destination, Source->GetName());
 
     for (UEdGraph* Graph : Graphs) {
         TArray<UK2Node*> Roots = FindRoots(Graph);

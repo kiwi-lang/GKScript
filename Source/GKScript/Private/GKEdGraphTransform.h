@@ -28,28 +28,48 @@ struct FGKCodeWriter {
     void* FilePointer = nullptr;
 };
 
+
+struct FGKGenContext {
+    UEdGraphPin* EndPin;
+    FString  ValueName;
+    TSet<FString> Variables;
+};
+
 /*! Basic proof of concept turning Blueprint graph into code
  *
  * TODO:
  *  * Make sure temporary variables are uniques
  *  * Add more nodes
+ * 
+ * 
+ * .. note::
+ *    
+ *    the main visitor iterates through nodes by following the execution
+ *    thread.
+ * 
+ *    It is up to you to go through the input/output threads.
+ * 
+ *      
  */
 struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void> {
     using Return = void;
     using Super = FGKEdGraphVisitor<FGKEdGraphTransform, void>;
 
-    void ExecuteArguments(UK2Node* Node);
-
     FGKEdGraphTransform(FString Folder, FString ScriptName);
 
     FString Indentation() const;
 
-    void GetArgumentReturns(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs);
+    void GetInputOutputs(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs);
 
     FString MakeVariable(UEdGraphPin* Pin);
 
     FString GetVariable(UEdGraphPin* Pin);
+    FString ResolveInputPin(UEdGraphPin* EndPin);
+    FString ResolveOutputPin(UEdGraphPin* EndPin);
+    void _FindAllNames(UEdGraphPin* EndPin, TSet<UEdGraphPin*>& Visited, TSet<FString>& Names);
+    TArray<FString> FindAllNames(UEdGraphPin* EndPin);
 
+    FString FormatDocstring(FString const& Docstring);
     // Generate Transform Functions
     // ---------------------------
     //
@@ -61,10 +81,11 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
 #undef NODE
     // clang-format on
 
-
+    TArray<FGKGenContext>       Context;
+    TArray<FString>             ReturnName;
     FGKCodeWriter               Writer;           // FileWriter
     TMap<UEdGraphPin*, FString> PinToVariable;    // Convert Pins to variables
     int                         IndentationLevel; // Used to generate python code
                                                   // with the right indentation
-
+    TArray<FString> CurrentVariable;
 };

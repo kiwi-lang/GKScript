@@ -19,7 +19,7 @@ void GenerateStructsForSelectedBlueprints(const TArray<FAssetData> SelectedAsset
 		UBlueprint* Blueprint = Cast<UBlueprint>(AssetData.GetAsset());
 		if (Blueprint && Blueprint->GeneratedClass)
 		{
-			GeneratePythonFromBlueprint(Blueprint);
+			GeneratePythonFromBlueprint(Blueprint, FString("GKScript"));
 		}
 	}
 }

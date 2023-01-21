@@ -15,7 +15,4 @@ class UGKScriptCommandlet : public UCommandlet
 
 public:
     virtual int32 Main(const FString& Params) override;
-
-
-    bool Done = false;
 };

@@ -21,11 +21,11 @@
 #include "K2Node_EnhancedInputAction.h"
 #include "K2Node_FunctionResult.h"
 #include "K2Node_FunctionTerminator.h"
+#include "K2Node_Tunnel.h"
 
 template <typename Impl, typename Return, typename... Args>
 struct FGKEdGraphVisitor {
     
-
 #define UK2NODES(NODE)\
     NODE(CallFunction)\
     NODE(VariableGet)\
@@ -39,6 +39,7 @@ struct FGKEdGraphVisitor {
     NODE(FunctionTerminator)\
     NODE(FunctionResult)\
     NODE(FunctionEntry)\
+    NODE(Tunnel)\
 
     enum class NodeKind {
         Unknown,
@@ -76,6 +77,7 @@ struct FGKEdGraphVisitor {
 
     // Traverse the output pins
     Return Exec(class UEdGraphPin* Pin, Args... args) {
+        // ? Shouldn't it be Exex(Pin->GetOwningNode()) ?
         if (!Pin) {
             return Return();
         }
@@ -113,8 +115,11 @@ struct FGKEdGraphVisitor {
     };
 
     FString GetDepthViz() const {
-        FString Temp = FString::ChrN(Depth, ' ');
-        for (int32 Cx = 0; Cx < Depth; ++Cx)
+        if (Depth == 1) {
+            GKSCRIPT_VERBOSE(TEXT(""));
+        }
+        FString Temp = FString::ChrN(Depth - 1, ' ');
+        for (int32 Cx = 0; Cx < Depth - 1; ++Cx)
         {
             Temp[Cx] = Cx & 1 ? ':' : '|';
         }
@@ -138,7 +143,7 @@ struct FGKEdGraphVisitor {
         #define NODE(Name)\
             case NodeKind::Name: {\
                 if (auto NodeCast = Cast<UK2Node_##Name>(Node)) {\
-                    GKSCRIPT_VERBOSE(TEXT("%s-> %s"), *GetDepthViz(), TEXT(#Name))\
+                    GKSCRIPT_VERBOSE(TEXT("%s+-> %s"), *GetDepthViz(), TEXT(#Name))\
                     return static_cast<Impl&>(*this).Name(NodeCast, args...);\
                 }\
             }
@@ -173,5 +178,6 @@ struct FGKEdGraphVisitor {
     // clang-format on
 
     int Depth = 0;
+    TSet<UEdGraphNode*> PreviousNodes;
 };
 
