@@ -35,9 +35,9 @@ public class GKScript : ModuleRules
         // Version Info
         // ------------
         // Automatically set by the CI
-        string GKSCRIPT_TAG = "v1.2.0";
-        string GKSCRIPT_HASH = "fd5965b0a334ba5784929aac36716dbf0e9fb9fb";
-        string GKSCRIPT_DATE = "2023-01-15 03:23:34 +0000";
+        string GKSCRIPT_TAG = "v0.0.0";
+        string GKSCRIPT_HASH = "nohash";
+        string GKSCRIPT_DATE = "1900-01-01 01:01:01 +0000";
 
         PublicDefinitions.Add("GKSCRIPT_TAG=" + GKSCRIPT_TAG);
         PublicDefinitions.Add("GKSCRIPT_COMMIT=" + GKSCRIPT_HASH);
