@@ -15,8 +15,140 @@ The code should be displayed in the editor as the usual graph but saved as its t
 * Blueprint Graph -> Text: WIP
 * Text -> Blueprint Graph: Not started
 
-Example
--------
+Output Example
+--------------
+
+.. code-block:: python
+
+   class BP_TopDownController(PlayerController):
+      """PlayerController Blueprint handles clicking and telling Character where to go."""
+      
+      PressedThreshold: real = DefaultSubObject()
+      FXCursor: NiagaraSystem = DefaultSubObject()
+      CachedDestination: Vector = DefaultSubObject()
+      
+      # FunctionEntry
+      def UserConstructionScript():
+         """"""
+
+      # FunctionEntry
+      def MoveTo(Goal):
+         """Description"""
+         # CallFunction
+         SimpleMoveToLocation(
+            self = Object,
+            Controller = self,
+            Goal = Goal,
+         )
+         # CallFunction
+         NiagaraComponent_1 = SpawnSystemAtLocation(
+            self = Object,
+            WorldContextObject = MissingLink(),
+            SystemTemplate = FXCursor,
+            Location = Goal,
+            Rotation = (0, 0, 0),
+            Scale = (1.000000,1.000000,1.000000),
+            bAutoDestroy = True,
+            bAutoActivate = True,
+            PoolingMethod = None,
+            bPreCullCheck = True,
+         )
+
+      # FunctionEntry
+      def Follow(To):
+         """"""
+         # CallFunction
+         Pawn_1 = K2_GetPawn(
+            self = MissingLink(),
+         )
+         # CallFunction
+         From = K2_GetActorLocation(
+            self = Pawn_1,
+         )
+         # CallFunction
+         WorldDirection = GetDirectionUnitVector(
+            self = Object,
+            From = From,
+            To = To,
+         )
+         # CallFunction
+         AddMovementInput(
+            self = Pawn_1,
+            WorldDirection = WorldDirection,
+            ScaleValue = 1.000000,
+            bForce = False,
+         )
+
+      # FunctionEntry
+      def GetLocationUnderCursor():
+         """"""
+         # CallFunction
+         Hit, bool_1 = GetHitResultUnderCursorByChannel(
+            self = MissingLink(),
+            TraceChannel = TraceTypeQuery1,
+            bTraceComplex = True,
+         )
+         # CallFunction
+         bBlockingHit, bInitialOverlap, Time, Distance, Location, ImpactPoint, Normal, ImpactNormal, PhysMat, HitActor, HitComponent, HitBoneName, BoneName, HitItem, ElementIndex, FaceIndex, TraceStart, TraceEnd = BreakHitResult(
+            self = Object,
+            Hit = Hit,
+         )
+         # FunctionResult
+         Hit = bBlockingHit
+         Location = Location
+         return Hit, Location
+
+      # FunctionEntry
+      def GetLocationUnderFinger():
+         """"""
+         # CallFunction
+         Hit, bool_1 = GetHitResultUnderFingerByChannel(
+            self = MissingLink(),
+            FingerIndex = Touch1,
+            TraceChannel = TraceTypeQuery1,
+            bTraceComplex = False,
+         )
+         # CallFunction
+         bBlockingHit, bInitialOverlap, Time, Distance, Location, ImpactPoint, Normal, ImpactNormal, PhysMat, HitActor, HitComponent, HitBoneName, BoneName, HitItem, ElementIndex, FaceIndex, TraceStart, TraceEnd = BreakHitResult(
+            self = Object,
+            Hit = Hit,
+         )
+         # FunctionResult
+         Hit = bBlockingHit
+         Location = Location
+         return Hit, Location
+
+      # FunctionEntry
+      def DummyTestFunction(Condition):
+         """"""
+         # IfThenElse
+         if Condition:
+            # CallFunction
+            Hit, Location = GetLocationUnderCursor(
+               self = MissingLink(),
+            )
+            # FunctionResult
+            Hit = Hit
+            Location = Location
+            return Hit, Location
+         else:
+            # CallFunction
+            Hit, Location = GetLocationUnderFinger(
+               self = MissingLink(),
+            )
+            # FunctionResult
+            Hit = Hit
+            Location = Location
+            return Hit, Location
+
+      # Event
+      def On_ReceiveBeginPlay():
+         """Event when play begins for this actor.
+         
+         Target is Actor"""
+         # MacroInstance
+         GetSubsystem(=ClassName)    # Tunnel
+
 
 .. code-block:: bash
 
@@ -58,104 +190,6 @@ Example
    [  0][V][LogGKScript               ]
    [  0][V][LogGKScript               ]  << Finished
    [  0][V][LogGKScript               ]
-
-.. code-block:: python
-
-   # FunctionEntry
-   def UserConstructionScript():
-      """"""
-
-   # FunctionEntry
-   def MoveTo(Goal: Vector):
-      """Description"""
-      # CallFunction
-      SimpleMoveToLocation(
-         self: AIBlueprintHelperLibrary = Object,
-         Controller: Controller = self,
-         Goal: Vector = Goal,
-      )
-      # CallFunction
-      NiagaraComponent_1: NiagaraComponent = SpawnSystemAtLocation(
-         self: NiagaraFunctionLibrary = Object,
-         WorldContextObject: Object,
-         SystemTemplate: NiagaraSystem = FXCursor,
-         Location: Vector = Goal,
-         Rotation: Rotator = (0, 0, 0),
-         Scale: Vector = (1.000000,1.000000,1.000000),
-         bAutoDestroy: bool = true,
-         bAutoActivate: bool = true,
-         PoolingMethod: ENCPoolMethod = None,
-         bPreCullCheck: bool = true,
-      )
-
-   # FunctionEntry
-   def Follow(To: Vector):
-      """"""
-      # CallFunction
-      Pawn_1: Pawn = K2_GetPawn(
-         self: Controller,
-      )
-      # CallFunction
-      From: Vector = K2_GetActorLocation(
-         self: Actor = Pawn_1,
-      )
-      # CallFunction
-      WorldDirection: Vector = GetDirectionUnitVector(
-         self: KismetMathLibrary = Object,
-         From: Vector = From,
-         To: Vector = To,
-      )
-      # CallFunction
-      AddMovementInput(
-         self: Pawn = Pawn_1,
-         WorldDirection: Vector = WorldDirection,
-         ScaleValue: real = 1.000000,
-         bForce: bool = false,
-      )
-
-   # FunctionEntry
-   def GetLocationUnderCursor():
-      """"""
-      # FunctionResult
-      # CallFunction
-      Hit: HitResult, bool_1: bool = GetHitResultUnderCursorByChannel(
-         self: PlayerController,
-         TraceChannel: ETraceTypeQuery = TraceTypeQuery1,
-         bTraceComplex: bool = TRUE,
-      )
-      # CallFunction
-      bBlockingHit: bool, bInitialOverlap: bool, Time: real, Distance: real, Location: Vector, ImpactPoint: Vector, Normal: Vector, ImpactNormal: Vector, PhysMat: PhysicalMaterial, HitActor: Actor, HitComponent: PrimitiveComponent, HitBoneName: name, BoneName: name, HitItem: int, ElementIndex: int, FaceIndex: int, TraceStart: Vector, TraceEnd: Vector = BreakHitResult(
-         self: GameplayStatics = Object,
-         Hit: HitResult = Hit,
-      )
-      return Hit: bool = bBlockingHit, Location: Vector = Location
-
-   # FunctionEntry
-   def GetLocationUnderFinger():
-      """"""
-      # FunctionResult
-      # CallFunction
-      Hit: HitResult, bool_1: bool = GetHitResultUnderFingerByChannel(
-         self: PlayerController,
-         FingerIndex: ETouchIndex = Touch1,
-         TraceChannel: ETraceTypeQuery = TraceTypeQuery1,
-         bTraceComplex: bool = false,
-      )
-      # CallFunction
-      bBlockingHit: bool, bInitialOverlap: bool, Time: real, Distance: real, Location: Vector, ImpactPoint: Vector, Normal: Vector, ImpactNormal: Vector, PhysMat: PhysicalMaterial, HitActor: Actor, HitComponent: PrimitiveComponent, HitBoneName: name, BoneName: name, HitItem: int, ElementIndex: int, FaceIndex: int, TraceStart: Vector, TraceEnd: Vector = BreakHitResult(
-         self: GameplayStatics = Object,
-         Hit: HitResult = Hit,
-      )
-      return Hit: bool = bBlockingHit, Location: Vector = Location
-
-      # Event
-      def On_ReceiveBeginPlay():
-      """Event when play begins for this actor.
-      
-      Target is Actor"""
-      # MacroInstance
-      GetSubsystem(=ClassName)
-
 
 
 Features

@@ -96,6 +96,29 @@ class BP_TopDownController(PlayerController):
     Location = Location
     return Hit, Location
 
+  # FunctionEntry
+  def DummyTestFunction(Condition):
+    """"""
+    # IfThenElse
+    if Condition:
+      # CallFunction
+      Hit, Location = GetLocationUnderCursor(
+        self = MissingLink(),
+      )
+      # FunctionResult
+      Hit = Hit
+      Location = Location
+      return Hit, Location
+    else:
+      # CallFunction
+      Hit, Location = GetLocationUnderFinger(
+        self = MissingLink(),
+      )
+      # FunctionResult
+      Hit = Hit
+      Location = Location
+      return Hit, Location
+
   # Event
   def On_ReceiveBeginPlay():
     """Event when play begins for this actor.
