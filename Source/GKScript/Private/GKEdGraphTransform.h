@@ -55,21 +55,30 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
     using Return = void;
     using Super = FGKEdGraphVisitor<FGKEdGraphTransform, void>;
 
-    FGKEdGraphTransform(FString Folder, FString ScriptName);
+    FGKEdGraphTransform(class UBlueprint* Source, FString Folder, FString ScriptName);
+
+    void Generate();
 
     FString Indentation() const;
 
     void GetInputOutputs(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs);
 
     FString MakeVariable(UEdGraphPin* Pin);
-
     FString GetVariable(UEdGraphPin* Pin);
+
     FString ResolveInputPin(UEdGraphPin* EndPin);
     FString ResolveOutputPin(UEdGraphPin* EndPin);
+
     void _FindAllNames(UEdGraphPin* EndPin, TSet<UEdGraphPin*>& Visited, TSet<FString>& Names);
     TArray<FString> FindAllNames(UEdGraphPin* EndPin);
 
+
+    // Helpers
+    // -------
     FString FormatDocstring(FString const& Docstring);
+    FString GenerateCallArgument(FString const& Name, FString const& Type, FString const& Value);
+    FString GenerateReturnVariable(FString const& Name, FString const& Type);
+
     // Generate Transform Functions
     // ---------------------------
     //
@@ -81,11 +90,12 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
 #undef NODE
     // clang-format on
 
+    bool                        bShowTypeName = true;
+    bool                        bDebugTypes = false;
+    class UBlueprint*           Source = nullptr;
     TArray<FGKGenContext>       Context;
-    TArray<FString>             ReturnName;
     FGKCodeWriter               Writer;           // FileWriter
     TMap<UEdGraphPin*, FString> PinToVariable;    // Convert Pins to variables
     int                         IndentationLevel; // Used to generate python code
                                                   // with the right indentation
-    TArray<FString> CurrentVariable;
 };
