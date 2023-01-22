@@ -704,3 +704,26 @@ void FGKEdGraphTransform::FunctionEntry(UK2Node_FunctionEntry* Node)
     WRITENODETYPE("# FunctionEntry");
     FunctionTerminator(Node);
 }
+
+void FGKEdGraphTransform::IfThenElse(UK2Node_IfThenElse* Node)
+{
+    // Compute Condition
+    FString Name = ResolveInputPin(Node->GetConditionPin());
+    int CharPos = 0;
+    if (Name.FindChar(' ', CharPos)) {
+        Name = Name.LeftChop(Name.Len() - CharPos);
+    }
+
+    WRITENODETYPE("# IfThenElse");
+
+    WRITELINE("if %s:", *Name);
+    {
+        INDENT();
+        Exec(Node->GetThenPin());
+    }
+    WRITELINE("else:");
+    {
+        INDENT();
+        Exec(Node->GetElsePin());
+    }
+}

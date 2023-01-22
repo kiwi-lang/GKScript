@@ -22,6 +22,7 @@
 #include "K2Node_FunctionResult.h"
 #include "K2Node_FunctionTerminator.h"
 #include "K2Node_Tunnel.h"
+#include "K2Node_IfThenElse.h"
 
 template <typename Impl, typename Return, typename... Args>
 struct FGKEdGraphVisitor {
@@ -40,6 +41,7 @@ struct FGKEdGraphVisitor {
     NODE(FunctionResult)\
     NODE(FunctionEntry)\
     NODE(Tunnel)\
+    NODE(IfThenElse)\
 
     enum class NodeKind {
         Unknown,
