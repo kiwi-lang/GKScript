@@ -30,6 +30,8 @@ public class GKScript : ModuleRules
                 // EnhancedInput
                 "EnhancedInput",
                 "InputBlueprintNodes",
+
+                "Python3",
         });
 
         // Version Info

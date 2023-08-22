@@ -32,7 +32,8 @@ int32 UGKScriptCommandlet::Main(const FString& Params)
     FString BlueprintPath = DebugValue;
 
     // Parse Parameters
-
+    FParse::Value(*Params, TEXT("Blueprint="), BlueprintPath);
+    FParse::Value(*Params, TEXT("Destination="), Destination);
     //
 
     UBlueprint* Blueprint = LoadBlueprint(BlueprintPath);
