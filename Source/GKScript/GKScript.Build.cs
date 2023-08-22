@@ -25,12 +25,13 @@ public class GKScript : ModuleRules
                 "Engine",
                 "Slate",
                 "SlateCore",
-                "BlueprintGraph",
+
+                "BlueprintGraph",   // K2 Nodes
+                "UnrealEd",         // UBlueprintFactory
 
                 // EnhancedInput
                 "EnhancedInput",
                 "InputBlueprintNodes",
-
                 "Python3",
         });
 

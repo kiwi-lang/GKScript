@@ -26,11 +26,11 @@ Output Example
 
    class BP_TopDownController(PlayerController):
       """PlayerController Blueprint handles clicking and telling Character where to go."""
-      
+
       PressedThreshold: real = DefaultSubObject()
       FXCursor: NiagaraSystem = DefaultSubObject()
       CachedDestination: Vector = DefaultSubObject()
-      
+
       # FunctionEntry
       def UserConstructionScript():
          """"""
@@ -148,7 +148,7 @@ Output Example
       # Event
       def On_ReceiveBeginPlay():
          """Event when play begins for this actor.
-         
+
          Target is Actor"""
          # MacroInstance
          GetSubsystem(=ClassName)    # Tunnel
@@ -156,7 +156,7 @@ Output Example
 
 .. code-block:: bash
 
-   $ uecli gkscript --project GamekitDev
+   $ uecli gamekit gkscript --project GamekitDev
    [  0][V][LogGKScript               ]  Parameters:  -run=GKScript -NoLiveCoding -fullstdoutlogoutput -utf8output -nullrhi -nosplash -nosound -nopause -unattended
    [  0][V][LogGKScript               ]   - GKSCRIPT_TAG   : v0.0.0
    [  0][V][LogGKScript               ]   - GKSCRIPT_COMMIT: nohash

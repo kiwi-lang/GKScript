@@ -35,6 +35,14 @@ struct FGKGenContext {
     TSet<FString> Variables;
 };
 
+
+struct FGKResolvedPin {
+    UEdGraphPin* StartPin = nullptr;
+    UEdGraphPin* EndPin   = nullptr;
+    UEdGraphNode* Node    = nullptr;
+    FString      Value;
+};
+
 /*! Basic proof of concept turning Blueprint graph into code
  *
  * TODO:
@@ -62,12 +70,17 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
     FString Indentation() const;
 
     void GetInputOutputs(UK2Node* Node, TArray<FString>& Args, TArray<FString>& Outs);
+    void GetInputOutputs(UK2Node* Node, UEdGraphPin*& Self, TArray<FString>& Inputs, TArray<FString>& Outputs);
 
     FString MakeVariable(UEdGraphPin* Pin);
     FString GetVariable(UEdGraphPin* Pin);
 
     FString ResolveInputPin(UEdGraphPin* EndPin);
     FString ResolveOutputPin(UEdGraphPin* EndPin);
+
+    FGKResolvedPin ResolvePin(UEdGraphPin* StartPin, EEdGraphPinDirection Direction);
+    void GetInputOutputs(UK2Node* Node, FGKResolvedPin& Self, TArray<FGKResolvedPin>& Inputs, TArray<FString>& Outputs);
+
 
     void _FindAllNames(UEdGraphPin* EndPin, TSet<UEdGraphPin*>& Visited, TSet<FString>& Names);
     TArray<FString> FindAllNames(UEdGraphPin* EndPin);
@@ -78,6 +91,9 @@ struct FGKEdGraphTransform : public FGKEdGraphVisitor<FGKEdGraphTransform, void>
     FString FormatDocstring(FString const& Docstring);
     FString GenerateCallArgument(FString const& Name, FString const& Type, FString const& Value);
     FString GenerateReturnVariable(FString const& Name, FString const& Type);
+
+    void MakeFunction(FString FunctionName, UK2Node* Node);
+    void CallFunction(FString FunctionName, UK2Node* Node);
 
     // Generate Transform Functions
     // ---------------------------

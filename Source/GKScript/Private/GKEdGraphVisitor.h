@@ -23,6 +23,8 @@
 #include "K2Node_FunctionTerminator.h"
 #include "K2Node_Tunnel.h"
 #include "K2Node_IfThenElse.h"
+#include "K2Node_VariableSet.h"
+#include "K2Node_PromotableOperator.h"
 
 template <typename Impl, typename Return, typename... Args>
 struct FGKEdGraphVisitor {
@@ -42,6 +44,9 @@ struct FGKEdGraphVisitor {
     NODE(FunctionEntry)\
     NODE(Tunnel)\
     NODE(IfThenElse)\
+    NODE(SetVariableOnPersistentFrame)\
+    NODE(VariableSet)\
+    NODE(PromotableOperator)
 
     enum class NodeKind {
         Unknown,
@@ -85,7 +90,18 @@ struct FGKEdGraphVisitor {
         }
 
         for(class UEdGraphPin* OutPin: Pin->LinkedTo) {
-            ExecGraphNode(OutPin->GetOwningNode(), args...);
+            UEdGraphNode* Node = OutPin->GetOwningNode();
+
+            if (UK2Node_Knot* Knot = Cast<UK2Node_Knot>(Node)) {
+                for(UEdGraphPin* KnotPin: Knot->Pins){
+                    if (KnotPin->Direction == EGPD_Output) {
+                        Exec(KnotPin, args...);
+                    }
+                }
+            
+            } else {
+                ExecGraphNode(Node, args...);
+            }
         }
 
         return Return();

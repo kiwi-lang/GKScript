@@ -71,10 +71,12 @@ TArray<UK2Node*> FindRoots(UEdGraph* Graph) {
             continue;
         }
 
-        
-
         // Roots do not have input pints
         if ((K2Node->GetThenPin() != nullptr && K2Node->GetExecPin() == nullptr)) {
+            Roots.Add(K2Node);
+        }
+
+        if (UK2Node_EnhancedInputAction* Action = Cast<UK2Node_EnhancedInputAction>(K2Node)) {
             Roots.Add(K2Node);
         }
     }

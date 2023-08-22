@@ -5,9 +5,13 @@
 #include "GKPythonVisitor.h"
 
 
+
+
 /* Transform a python script into Blueprint
  */
-class FGKPythonTransform : public PythonASTVisitor {
+class FGKPythonTransform : public PythonASTVisitor 
+{
+    public:
 
     FGKPythonTransform(FString OutputPath, class UBlueprint* Dest=nullptr);
 
@@ -21,8 +25,21 @@ class FGKPythonTransform : public PythonASTVisitor {
     int assign(stmt_ty node_, int depth) override;
     int ifstmt(stmt_ty node_, int depth) override;
 
+
+
     FString OutputPath;
     class UBlueprint* Destination;
     class UEdGraph* CurrentGraph;
-    TMap<FName, UEdGraphPin*> ArgNameToPin;
+
+
+    // 
+    struct FGKTransfromContext {
+        TMap<FName, UEdGraphPin*> ArgNameToPin;
+    };
+
+    TArray<FGKTransfromContext> TransformStack;
+
+    FGKTransfromContext& GetContext() {
+        return TransformStack.Last();
+    }
 };

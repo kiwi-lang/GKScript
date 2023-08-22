@@ -32,13 +32,24 @@
 
 //
 
+struct FGKContextGuard {
+    FGKContextGuard(FGKPythonTransform& Transform) :
+        Transform(Transform)
+    {
+        Transform.TransformStack.Add(FGKPythonTransform::FGKTransfromContext());
+    }
+
+    ~FGKContextGuard() {
+        Transform.TransformStack.Pop();
+    }
+
+    FGKPythonTransform& Transform;
+};
+
 FGKPythonTransform::FGKPythonTransform(FString OutputPath, class UBlueprint* Dest):
     OutputPath(OutputPath), Destination(Dest)
-{}
-
-// Expression
-int FGKPythonTransform::call(expr_ty node_, int depth) {
-    //
+{
+    TransformStack.Add(FGKTransfromContext());
 }
 
 FString PythonFString(PyObject* Object) {
@@ -47,6 +58,12 @@ FString PythonFString(PyObject* Object) {
 
 FName PythonFName(PyObject* Object) {
     return FName(PyBytes_AsString(Object));
+}
+
+// Expression
+int FGKPythonTransform::call(expr_ty node_, int depth) {
+    //
+    return 0;
 }
 
 
@@ -61,6 +78,8 @@ int FGKPythonTransform::classdef(stmt_ty node_, int depth) {
     expr_ty BaseClass = (expr_ty) asdl_seq_GET(Bases, 0);
     ensure(BaseClass->kind == Name_kind);
     FString BaseClassName = PythonFString(BaseClass->v.Name.id);
+
+    // Deprecated
     UClass* BaseClassType = FindObject<UClass>(ANY_PACKAGE, *BaseClassName);
     // ----
 
@@ -103,17 +122,16 @@ int FGKPythonTransform::classdef(stmt_ty node_, int depth) {
     Destination = nullptr;
     return result;
 }
+
 int FGKPythonTransform::functiondef(stmt_ty node_, int depth) 
 {
     ensure(CurrentGraph != nullptr);
     ensure(Destination != nullptr);
 
-
+    FGKContextGuard _(*this);
 
     // use decorators to know the type of graph to add
     node_->v.FunctionDef.decorator_list;
-
-
 
     UK2Node_FunctionTerminator* NewNode = NewObject<UK2Node_FunctionTerminator>(
         CurrentGraph,
@@ -147,7 +165,7 @@ int FGKPythonTransform::functiondef(stmt_ty node_, int depth)
             PinName,
             i
         );
-        ArgNameToPin[PinName] = ArgPin;
+        GetContext().ArgNameToPin[PinName] = ArgPin;
     }
 
     // Build the graph
@@ -156,6 +174,13 @@ int FGKPythonTransform::functiondef(stmt_ty node_, int depth)
     CurrentGraph = nullptr;
     return result;
 }
-int FGKPythonTransform::returnstmt(stmt_ty node_, int depth) {}
-int FGKPythonTransform::assign(stmt_ty node_, int depth) {}
-int FGKPythonTransform::ifstmt(stmt_ty node_, int depth) {}
+int FGKPythonTransform::returnstmt(stmt_ty node_, int depth) {
+    return 1;
+}
+int FGKPythonTransform::assign(stmt_ty node_, int depth) {
+    // Create variables
+    return 1;
+}
+int FGKPythonTransform::ifstmt(stmt_ty node_, int depth) {
+    return 1;
+}
